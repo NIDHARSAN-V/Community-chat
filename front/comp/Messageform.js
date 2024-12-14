@@ -1,14 +1,16 @@
 import React, { useContext, useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, Button, ScrollView, Image, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Button, ScrollView, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSelector } from 'react-redux';
 import { AppContext } from '../context/appContext';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
-function MessagePanel() {
+function MessageForm() {
   const user = useSelector((state) => state.user);
   const scrollViewRef = useRef(null);
   const [message, setMessage] = useState("");
   const { socket, currentRoom, messages, setMessages, privateMemberMsg } = useContext(AppContext);
+  
+  // State for active tab
+  const [activeTab, setActiveTab] = useState('chat'); // 'chat' or 'user'
 
   useEffect(() => {
     scrollToBottom();
@@ -47,74 +49,121 @@ function MessagePanel() {
   }
 
   return (
-    <ScrollView style={styles.messagesOutput} ref={scrollViewRef} onContentSizeChange={scrollToBottom}>
-      {user && !privateMemberMsg?._id && (
-        <View style={styles.alert}>
-          <Text style={styles.alertText}>You are in {currentRoom}</Text>
-        </View>
-      )}
-      {user && privateMemberMsg?._id && (
-        <View style={styles.conversationalInfo}>
-          <Text style={styles.alertText}>Your conversation with {privateMemberMsg.name}</Text>
-          <Image source={{ uri: privateMemberMsg.picture }} style={styles.converPic} />
-        </View>
-      )}
-      {!user && (
-        <View style={styles.alertDanger}>
-          <Text style={styles.alertText}>Please login to your account</Text>
-        </View>
-      )}
-      {user && messages.map(({ _id: date, messagesByDate }, idx) => (
-        <View key={idx}>
-          <Text style={styles.messageDateIndicator}>{date}</Text>
-          {messagesByDate?.map(({ content, time, from: sender }, msgidx) => (
-            <View
-              style={sender && sender.email === user?.email ? styles.message : styles.incomingMessage}
-              key={msgidx}
-            >
-              <View style={styles.messageInner}>
-                <View style={styles.messageHeader}>
-                  {sender && sender.picture ? (
-                    <Image source={{ uri: sender.picture }} style={styles.senderPic} />
-                  ) : (
-                    <View style={styles.senderPicPlaceholder}></View>
-                  )}
-                  <Text style={styles.messageSender}>
-                    {sender && sender._id === user?._id ? "You" : sender?.name || "Unknown"}
-                  </Text>
-                </View>
-                <Text style={styles.messageContent}>{content}</Text>
-                <Text style={styles.messageTimestamp}>{time}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
-      ))}
-    </ScrollView>
-  );
-}
+    <View style={styles.container}>
+      {/* Tab Navigation */}
+      <View style={styles.tabs}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'chat' && styles.activeTab]}
+          onPress={() => setActiveTab('chat')}
+        >
+          <Text style={styles.tabText}>Chat</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'user' && styles.activeTab]}
+          onPress={() => setActiveTab('user')}
+        >
+          <Text style={styles.tabText}>User</Text>
+        </TouchableOpacity>
+      </View>
 
-function UserPanel() {
-  return (
-    <View style={styles.userPanel}>
-      <Text style={styles.alertText}>User Panel</Text>
-      {/* Add any user-related content here */}
+      {/* Conditionally render based on the active tab */}
+      {activeTab === 'chat' ? (
+        <View style={styles.chatPanel}>
+          <ScrollView style={styles.messagesOutput} ref={scrollViewRef} onContentSizeChange={scrollToBottom}>
+            {user && !privateMemberMsg?._id && (
+              <View style={styles.alert}>
+                <Text style={styles.alertText}>You are in {currentRoom}</Text>
+              </View>
+            )}
+            {user && privateMemberMsg?._id && (
+              <View style={styles.conversationalInfo}>
+                <Text style={styles.alertText}>Your conversation with {privateMemberMsg.name}</Text>
+                <Image source={{ uri: privateMemberMsg.picture }} style={styles.converPic} />
+              </View>
+            )}
+            {!user && (
+              <View style={styles.alertDanger}>
+                <Text style={styles.alertText}>Please login to your account</Text>
+              </View>
+            )}
+            {user && messages.map(({ _id: date, messagesByDate }, idx) => (
+              <View key={idx}>
+                <Text style={styles.messageDateIndicator}>{date}</Text>
+                {messagesByDate?.map(({ content, time, from: sender }, msgidx) => (
+                  <View
+                    style={
+                      sender && sender.email === user?.email ? styles.message : styles.incomingMessage
+                    }
+                    key={msgidx}
+                  >
+                    <View style={styles.messageInner}>
+                      <View style={styles.messageHeader}>
+                        {sender && sender.picture ? (
+                          <Image source={{ uri: sender.picture }} style={styles.senderPic} />
+                        ) : (
+                          <View style={styles.senderPicPlaceholder}></View>
+                        )}
+                        <Text style={styles.messageSender}>
+                          {sender && sender._id === user?._id ? "You" : sender?.name || "Unknown"}
+                        </Text>
+                      </View>
+                      <Text style={styles.messageContent}>{content}</Text>
+                      <Text style={styles.messageTimestamp}>{time}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ))}
+          </ScrollView>
+          <View style={styles.form}>
+            <TextInput
+              style={styles.input}
+              placeholder="Your Message"
+              value={message}
+              onChangeText={(text) => setMessage(text)}
+            />
+            <Button title="Send" onPress={handleSubmit} color="#ff9900" disabled={!user} />
+          </View>
+        </View>
+      ) : (
+        <View style={styles.userPanel}>
+          <Text style={styles.alertText}>User Panel Additionak info</Text>
+          {/* Add any user-related content here */}
+        </View>
+      )}
     </View>
   );
 }
 
-const Tab = createBottomTabNavigator();
-
-export default function MessageForm() {
-  return (
-    <Tab.Navigator>
-      <Tab.Screen name="Chat" component={MessagePanel} />
-      <Tab.Screen name="User" component={UserPanel} />
-    </Tab.Navigator>
-  );
-}
-
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  tabs: {
+    flexDirection: 'row',
+    backgroundColor: '#ddd',
+    justifyContent: 'space-around',
+    paddingVertical: 10,
+  },
+  tab: {
+    padding: 10,
+  },
+  activeTab: {
+    backgroundColor: '#ff9900',
+  },
+  tabText: {
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  chatPanel: {
+    flex: 1,
+  },
+  userPanel: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+  },
   messagesOutput: {
     flex: 1,
     padding: 5,
@@ -214,9 +263,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'red',
   },
-  userPanel: {
-    padding: 20,
-    backgroundColor: '#f8f9fa',
+  form: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    backgroundColor: 'grey',
+  },
+  input: {
     flex: 1,
+    borderWidth: 3,
+    borderColor: '#ced4da',
+    borderRadius: 5,
+    padding: 10,
+    marginRight: 10,
+    color: 'white',
+    backgroundColor: 'black',
   },
 });
+
+export default MessageForm;
